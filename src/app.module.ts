@@ -16,6 +16,8 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { BlogModule } from './modules/blog/blog.module';
+import { InquiriesModule } from './modules/inquiries/inquiries.module';
 
 // Feature modules are added here as each build phase implements them:
 //   Phase 1: AuthModule (+ Users, Admins via Auth)          ← DONE
@@ -24,6 +26,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
 //   Phase 4: WalletModule                                   ← DONE
 //   Phase 6: LeadsModule, CustomersModule, ReportingModule  ← DONE (+ SubAdmins via Admins,
 //            Service/Settings admin CRUD via their modules, ActivityLogModule shared)
+//   Phase 7: BlogModule, InquiriesModule                    ← DONE
 
 @Module({
   imports: [
@@ -59,6 +62,8 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     LeadsModule,
     CustomersModule,
     ReportingModule,
+    BlogModule,
+    InquiriesModule,
   ],
   providers: [
     // Apply rate limiting globally.

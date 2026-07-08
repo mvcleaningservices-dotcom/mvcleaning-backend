@@ -37,6 +37,11 @@ export class ServicesService implements OnModuleInit {
     this.logger.log('Seeded sample services (dev).');
   }
 
+  /** All active services platform-wide — marketing site Services page (scope §5). */
+  async listAllActive() {
+    return this.serviceModel.find({ isActive: true }).sort({ name: 1 }).exec();
+  }
+
   /**
    * List active services available in a pincode (scope §3.2.2).
    * Optional case-insensitive name search.

@@ -25,4 +25,21 @@ export class ServicesController {
       price: s.price,
     }));
   }
+
+  /**
+   * GET /api/services/catalog
+   * Public, no pincode required — the marketing site's "Services" page lists
+   * every active service platform-wide (scope §5), unlike the app's
+   * area-filtered discovery flow.
+   */
+  @Get('catalog')
+  async catalog() {
+    const services = await this.services.listAllActive();
+    return services.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      price: s.price,
+    }));
+  }
 }
