@@ -1,4 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -57,5 +64,51 @@ export class AdminsService implements OnModuleInit {
 
   verifyPassword(plain: string, hash: string): Promise<boolean> {
     return bcrypt.compare(plain, hash);
+  }
+
+  /** All Sub Admin accounts (scope §4.3.1) — Super Admin management list. */
+  async listSubAdmins() {
+    const admins = await this.adminModel
+      .find({ role: Role.SUB_ADMIN })
+      .sort({ username: 1 })
+      .exec();
+    return admins.map((a) => this.view(a));
+  }
+
+  async createSubAdmin(username: string, password: string) {
+    const existing = await this.findByUsername(username);
+    if (existing) {
+      throw new ConflictException('Username already in use');
+    }
+    const admin = await this.create(username, password, Role.SUB_ADMIN);
+    return this.view(admin);
+  }
+
+  async setSubAdminActive(id: string, isActive: boolean) {
+    const admin = await this.adminModel.findOne({ _id: id, role: Role.SUB_ADMIN });
+    if (!admin) throw new NotFoundException('Sub Admin not found');
+    admin.isActive = isActive;
+    await admin.save();
+    return this.view(admin);
+  }
+
+  async resetSubAdminPassword(id: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const admin = await this.adminModel.findOne({ _id: id, role: Role.SUB_ADMIN });
+    if (!admin) throw new NotFoundException('Sub Admin not found');
+    admin.passwordHash = await bcrypt.hash(newPassword, 10);
+    await admin.save();
+    return this.view(admin);
+  }
+
+  view(a: AdminDocument) {
+    return {
+      id: a.id,
+      username: a.username,
+      role: a.role,
+      isActive: a.isActive,
+    };
   }
 }

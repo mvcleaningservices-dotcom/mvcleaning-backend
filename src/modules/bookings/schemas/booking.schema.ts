@@ -75,6 +75,11 @@ export class Booking {
   @Prop({ required: true })
   address: string;
 
+  // Pincode used to discover these services — enables admin "area" filtering
+  // in reporting (scope §4.3.3). Optional for backward-compat callers.
+  @Prop({ type: String, default: '' })
+  pincode: string;
+
   @Prop({ required: true, min: 0 })
   totalAmount: number;
 

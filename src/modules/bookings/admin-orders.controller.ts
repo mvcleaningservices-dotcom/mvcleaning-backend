@@ -17,6 +17,7 @@ import {
   ReassignWorkerDto,
   UpdateStatusDto,
 } from './dto/admin-order.dto';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -33,7 +34,10 @@ import type { AuthUser } from '../../common/types/jwt-payload';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.SUPER_ADMIN, Role.SUB_ADMIN)
 export class AdminOrdersController {
-  constructor(private readonly orders: AdminOrdersService) {}
+  constructor(
+    private readonly orders: AdminOrdersService,
+    private readonly activity: ActivityLogService,
+  ) {}
 
   @Get()
   list(
@@ -41,8 +45,9 @@ export class AdminOrdersController {
     @Query('workerId') workerId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('area') area?: string,
   ) {
-    return this.orders.list({ status, workerId, from, to });
+    return this.orders.list({ status, workerId, from, to, area });
   }
 
   @Get('workers/:workerId/summary')
@@ -56,12 +61,16 @@ export class AdminOrdersController {
   }
 
   @Post(':id/assign')
-  assign(
+  async assign(
     @Param('id') id: string,
     @Body() dto: AssignWorkerDto,
     @CurrentUser() admin: AuthUser,
   ) {
-    return this.orders.assign(id, dto.workerId, admin.username ?? admin.id);
+    const result = await this.orders.assign(id, dto.workerId, admin.username ?? admin.id);
+    this.activity
+      .log(admin.username ?? admin.id, admin.role, 'order.assign', `${result.orderNumber} -> ${result.assignedWorkerName}`)
+      .catch(() => {});
+    return result;
   }
 
   @Post(':id/reassign')
@@ -74,26 +83,38 @@ export class AdminOrdersController {
   }
 
   @Patch(':id/status')
-  updateStatus(
+  async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateStatusDto,
     @CurrentUser() admin: AuthUser,
   ) {
-    return this.orders.updateStatus(id, dto.status, admin.username ?? admin.id);
+    const result = await this.orders.updateStatus(id, dto.status, admin.username ?? admin.id);
+    this.activity
+      .log(admin.username ?? admin.id, admin.role, 'order.status', `${result.orderNumber} -> ${dto.status}`)
+      .catch(() => {});
+    return result;
   }
 
   @Post(':id/complete')
-  complete(@Param('id') id: string, @CurrentUser() admin: AuthUser) {
-    return this.orders.complete(id, admin.username ?? admin.id);
+  async complete(@Param('id') id: string, @CurrentUser() admin: AuthUser) {
+    const result = await this.orders.complete(id, admin.username ?? admin.id);
+    this.activity
+      .log(admin.username ?? admin.id, admin.role, 'order.complete', result.orderNumber)
+      .catch(() => {});
+    return result;
   }
 
   @Post(':id/cancel')
-  cancel(
+  async cancel(
     @Param('id') id: string,
     @Body() dto: CancelOrderDto,
     @CurrentUser() admin: AuthUser,
   ) {
-    return this.orders.cancel(id, dto.reason ?? '', admin.username ?? admin.id);
+    const result = await this.orders.cancel(id, dto.reason ?? '', admin.username ?? admin.id);
+    this.activity
+      .log(admin.username ?? admin.id, admin.role, 'order.cancel', `${result.orderNumber}: ${dto.reason ?? ''}`)
+      .catch(() => {});
+    return result;
   }
 
   @Post(':id/notes')

@@ -13,6 +13,8 @@ import { SettingsModule } from '../settings/settings.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { WorkersModule } from '../workers/workers.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { LeadsModule } from '../leads/leads.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { WalletModule } from '../wallet/wallet.module';
     PaymentsModule,
     WorkersModule,
     WalletModule,
+    LeadsModule,
+    ActivityLogModule,
   ],
   controllers: [BookingsController, PaymentController, AdminOrdersController],
   providers: [BookingsService, AdminOrdersService],

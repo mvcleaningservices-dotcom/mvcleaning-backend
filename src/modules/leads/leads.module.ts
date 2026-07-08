@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Lead, LeadSchema } from './schemas/lead.schema';
+import { LeadsService } from './leads.service';
+import { LeadsController } from './leads.controller';
 
-/**
- * LeadsModule — placeholder skeleton (Phase 0).
- * Implemented in a later build phase; wire into AppModule when built.
- */
-@Module({})
+@Module({
+  imports: [MongooseModule.forFeature([{ name: Lead.name, schema: LeadSchema }])],
+  controllers: [LeadsController],
+  providers: [LeadsService],
+  exports: [LeadsService],
+})
 export class LeadsModule {}

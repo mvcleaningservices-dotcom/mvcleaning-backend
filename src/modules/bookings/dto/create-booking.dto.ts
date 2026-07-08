@@ -33,4 +33,10 @@ export class CreateBookingDto {
   @MinLength(5, { message: 'A complete address is required' })
   @MaxLength(500)
   address: string;
+
+  /** Pincode the services were discovered in — used for admin area reports. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{6}$/, { message: 'Pincode must be 6 digits' })
+  pincode?: string;
 }

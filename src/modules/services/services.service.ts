@@ -1,8 +1,14 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Service, ServiceDocument } from './schemas/service.schema';
+import { CreateServiceDto, UpdateServiceDto } from './dto/service.dto';
 
 @Injectable()
 export class ServicesService implements OnModuleInit {
@@ -58,5 +64,46 @@ export class ServicesService implements OnModuleInit {
 
   private escapeRegex(input: string): string {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // ---- Admin CRUD (scope §4.3.2) ----
+
+  /** All services regardless of active state — admin catalog view. */
+  async listAll() {
+    const services = await this.serviceModel.find().sort({ name: 1 }).exec();
+    return services.map((s) => this.view(s));
+  }
+
+  async create(dto: CreateServiceDto) {
+    const service = await this.serviceModel.create({
+      name: dto.name,
+      description: dto.description ?? '',
+      price: dto.price,
+      pincodes: dto.pincodes ?? [],
+    });
+    return this.view(service);
+  }
+
+  async update(id: string, dto: UpdateServiceDto) {
+    const service = await this.serviceModel.findById(id);
+    if (!service) throw new NotFoundException('Service not found');
+    if (dto.name !== undefined) service.name = dto.name;
+    if (dto.description !== undefined) service.description = dto.description;
+    if (dto.price !== undefined) service.price = dto.price;
+    if (dto.pincodes !== undefined) service.pincodes = dto.pincodes;
+    if (dto.isActive !== undefined) service.isActive = dto.isActive;
+    await service.save();
+    return this.view(service);
+  }
+
+  view(s: ServiceDocument) {
+    return {
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      price: s.price,
+      pincodes: s.pincodes,
+      isActive: s.isActive,
+    };
   }
 }

@@ -10,6 +10,7 @@ import { SmsService } from './sms/sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { AdminsModule } from '../admins/admins.module';
+import { LeadsModule } from '../leads/leads.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminsModule } from '../admins/admins.module';
     JwtModule.register({}), // secret/expiry passed per-sign in AuthService
     UsersModule,
     AdminsModule,
+    LeadsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, SmsService, JwtStrategy],

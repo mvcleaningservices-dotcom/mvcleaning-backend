@@ -13,13 +13,17 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { WorkersModule } from './modules/workers/workers.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { LeadsModule } from './modules/leads/leads.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
 
 // Feature modules are added here as each build phase implements them:
 //   Phase 1: AuthModule (+ Users, Admins via Auth)          ← DONE
 //   Phase 2: ServicesModule, SettingsModule, BookingsModule ← DONE (+ Payments via Bookings)
 //   Phase 3: WorkersModule (+ AdminOrders via Bookings)     ← DONE
 //   Phase 4: WalletModule                                   ← DONE
-//   Phase 6: LeadsModule, ReportingModule
+//   Phase 6: LeadsModule, CustomersModule, ReportingModule  ← DONE (+ SubAdmins via Admins,
+//            Service/Settings admin CRUD via their modules, ActivityLogModule shared)
 
 @Module({
   imports: [
@@ -52,6 +56,9 @@ import { WalletModule } from './modules/wallet/wallet.module';
     BookingsModule,
     WorkersModule,
     WalletModule,
+    LeadsModule,
+    CustomersModule,
+    ReportingModule,
   ],
   providers: [
     // Apply rate limiting globally.

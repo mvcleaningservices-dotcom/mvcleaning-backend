@@ -13,6 +13,7 @@ import { ServicesService } from '../services/services.service';
 import { SettingsService } from '../settings/settings.service';
 import { RazorpayService } from '../payments/razorpay.service';
 import { WalletService } from '../wallet/wallet.service';
+import { LeadsService } from '../leads/leads.service';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 
 @Injectable()
@@ -26,6 +27,7 @@ export class BookingsService {
     private readonly settings: SettingsService,
     private readonly razorpay: RazorpayService,
     private readonly wallet: WalletService,
+    private readonly leads: LeadsService,
   ) {}
 
   /** Atomic, sequential, human-friendly order number (e.g. MV-00001). */
@@ -67,11 +69,16 @@ export class BookingsService {
       scheduledDate: dto.scheduledDate,
       timeSlot: dto.timeSlot,
       address: dto.address,
+      pincode: dto.pincode ?? '',
       totalAmount,
       advanceAmount,
       advancePaid: false,
       status: OrderStatus.PENDING,
     });
+
+    // A booking means the login converted (scope §4.4.4) — never block the
+    // booking if this logging fails.
+    this.leads.markConvertedIfPending(userId, orderNumber).catch(() => {});
 
     // No advance configured → confirm immediately, no payment step.
     if (advanceAmount <= 0) {

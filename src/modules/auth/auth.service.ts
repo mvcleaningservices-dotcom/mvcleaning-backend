@@ -14,6 +14,7 @@ import { Otp, OtpDocument } from './schemas/otp.schema';
 import { SmsService } from './sms/sms.service';
 import { UsersService } from '../users/users.service';
 import { AdminsService } from '../admins/admins.service';
+import { LeadsService } from '../leads/leads.service';
 import { Role } from '../../common/enums/role.enum';
 import { JwtPayload } from '../../common/types/jwt-payload';
 
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly sms: SmsService,
     private readonly users: UsersService,
     private readonly admins: AdminsService,
+    private readonly leads: LeadsService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -92,6 +94,10 @@ export class AuthService {
     // Success — consume the OTP and log the user in.
     await this.otpModel.deleteMany({ mobile });
     const user = await this.users.findOrCreateByMobile(mobile);
+
+    // Log this login as a sales follow-up candidate (scope §4.4.4). Never
+    // let a logging failure block login.
+    this.leads.logLogin(user.id, user.mobile).catch(() => {});
 
     const token = this.signToken(
       { sub: user.id, role: Role.CONSUMER },

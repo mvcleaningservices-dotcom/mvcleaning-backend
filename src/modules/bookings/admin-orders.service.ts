@@ -56,15 +56,17 @@ export class AdminOrdersService {
     return order;
   }
 
-  /** Admin order list with optional filters (scope §4.4.1, §4.3.3). */
+  /** Admin order list with optional filters (scope §4.4.1, §4.3.3: date range, worker, area, status). */
   async list(filters: {
     status?: string;
     workerId?: string;
     from?: string;
     to?: string;
+    area?: string;
   }) {
     const query: Record<string, unknown> = {};
     if (filters.status) query.status = filters.status;
+    if (filters.area) query.pincode = filters.area;
     if (filters.workerId && Types.ObjectId.isValid(filters.workerId)) {
       query.assignedWorker = new Types.ObjectId(filters.workerId);
     }
