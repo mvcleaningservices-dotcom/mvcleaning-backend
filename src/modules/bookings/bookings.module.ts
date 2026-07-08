@@ -6,9 +6,12 @@ import { Counter, CounterSchema } from './schemas/counter.schema';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
 import { PaymentController } from './payment.controller';
+import { AdminOrdersService } from './admin-orders.service';
+import { AdminOrdersController } from './admin-orders.controller';
 import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { WorkersModule } from '../workers/workers.module';
 
 @Module({
   imports: [
@@ -19,9 +22,10 @@ import { PaymentsModule } from '../payments/payments.module';
     ServicesModule,
     SettingsModule,
     PaymentsModule,
+    WorkersModule,
   ],
-  controllers: [BookingsController, PaymentController],
-  providers: [BookingsService],
+  controllers: [BookingsController, PaymentController, AdminOrdersController],
+  providers: [BookingsService, AdminOrdersService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

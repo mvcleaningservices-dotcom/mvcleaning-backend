@@ -18,6 +18,37 @@ export class BookingItem {
 }
 const BookingItemSchema = SchemaFactory.createForClass(BookingItem);
 
+/** An internal admin note on an order (scope §4.4.1). */
+@Schema({ _id: false, timestamps: { createdAt: 'at', updatedAt: false } })
+export class OrderNote {
+  @Prop({ required: true })
+  text: string;
+
+  @Prop({ required: true })
+  adminUsername: string;
+}
+const OrderNoteSchema = SchemaFactory.createForClass(OrderNote);
+
+/**
+ * One entry in the worker reassignment audit log (scope §4.4.1a).
+ * Append-only — a full trail of who changed the worker, when, and why.
+ */
+@Schema({ _id: false, timestamps: { createdAt: 'at', updatedAt: false } })
+export class Reassignment {
+  @Prop({ type: String, default: null })
+  fromWorkerName: string | null;
+
+  @Prop({ required: true })
+  toWorkerName: string;
+
+  @Prop({ required: true })
+  reason: string;
+
+  @Prop({ required: true })
+  adminUsername: string;
+}
+const ReassignmentSchema = SchemaFactory.createForClass(Reassignment);
+
 /**
  * A consumer booking / order (scope §3.1, §3.2.3, §3.2.6).
  * Created as PENDING; becomes CONFIRMED once the advance is paid (or when the
@@ -67,6 +98,30 @@ export class Booking {
 
   @Prop({ default: null })
   razorpayPaymentId?: string;
+
+  // ---- Admin order management (Phase 3) ----
+
+  @Prop({ type: Types.ObjectId, ref: 'Worker', default: null, index: true })
+  assignedWorker?: Types.ObjectId | null;
+
+  @Prop({ type: String, default: null })
+  assignedWorkerName?: string | null;
+
+  @Prop({ type: [OrderNoteSchema], default: [] })
+  notes: OrderNote[];
+
+  @Prop({ type: [ReassignmentSchema], default: [] })
+  reassignments: Reassignment[];
+
+  // Optional proof-of-work images (scope §4.4.1 — not mandatory, non-blocking).
+  @Prop({ type: [String], default: [] })
+  proofImages: string[];
+
+  @Prop({ type: String, default: null })
+  cancelReason?: string | null;
+
+  @Prop({ type: Date, default: null })
+  completedAt?: Date | null;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

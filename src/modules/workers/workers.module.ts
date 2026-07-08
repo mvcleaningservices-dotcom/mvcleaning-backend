@@ -1,8 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Worker, WorkerSchema } from './schemas/worker.schema';
+import { WorkersService } from './workers.service';
+import { WorkersController } from './workers.controller';
 
-/**
- * WorkersModule — placeholder skeleton (Phase 0).
- * Implemented in a later build phase; wire into AppModule when built.
- */
-@Module({})
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Worker.name, schema: WorkerSchema }]),
+  ],
+  controllers: [WorkersController],
+  providers: [WorkersService],
+  exports: [WorkersService],
+})
 export class WorkersModule {}

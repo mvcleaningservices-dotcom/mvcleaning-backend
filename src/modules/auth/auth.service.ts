@@ -120,7 +120,7 @@ export class AuthService {
     }
 
     const token = this.signToken(
-      { sub: admin.id, role: admin.role },
+      { sub: admin.id, role: admin.role, username: admin.username },
       this.config.get<string>('jwt.adminExpiresIn') || '1d',
     );
 

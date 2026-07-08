@@ -11,12 +11,14 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ServicesModule } from './modules/services/services.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { WorkersModule } from './modules/workers/workers.module';
 
 // Feature modules are added here as each build phase implements them:
 //   Phase 1: AuthModule (+ Users, Admins via Auth)          ← DONE
 //   Phase 2: ServicesModule, SettingsModule, BookingsModule ← DONE (+ Payments via Bookings)
+//   Phase 3: WorkersModule (+ AdminOrders via Bookings)     ← DONE
 //   Phase 4: WalletModule
-//   Phase 3/6: WorkersModule, LeadsModule, ReportingModule
+//   Phase 6: LeadsModule, ReportingModule
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { BookingsModule } from './modules/bookings/bookings.module';
     ServicesModule,
     SettingsModule,
     BookingsModule,
+    WorkersModule,
   ],
   providers: [
     // Apply rate limiting globally.
