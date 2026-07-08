@@ -218,6 +218,13 @@ export class AdminOrdersService {
     };
   }
 
+  /** Remaining balance due after advance and any final payment made so far. */
+  private remainingDue(o: BookingDocument): number {
+    const advance = o.advancePaid ? o.advanceAmount : 0;
+    const paidSoFar = o.finalWalletPaid + o.finalCashPaid + o.finalOnlinePaid;
+    return Math.max(0, o.totalAmount - advance - paidSoFar);
+  }
+
   // ---- shaping ----
   private summary(o: BookingDocument) {
     const user = o.user as any;
@@ -236,6 +243,15 @@ export class AdminOrdersService {
       advancePaid: o.advancePaid,
       status: o.status,
       assignedWorkerName: o.assignedWorkerName ?? null,
+      // Cash reconciliation basics (scope §5, Phase 5 recommendation) — the
+      // consumer records how the final balance was split when they settle it
+      // (wallet vs. cash to the worker); surfaced here for admin visibility.
+      remainingDue: this.remainingDue(o),
+      finalPayment: {
+        walletPaid: o.finalWalletPaid,
+        cashPaid: o.finalCashPaid,
+        settled: o.finalSettled,
+      },
     };
   }
 

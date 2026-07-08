@@ -6,7 +6,6 @@ export type UserDocument = HydratedDocument<User>;
 /**
  * Consumer account (scope §3.2.1, §3.2.7).
  * Created on first successful OTP verification. Mobile number is the identity.
- * Profile fields (name, address, pincode) are filled/expanded in later phases.
  */
 @Schema({ timestamps: true })
 export class User {
@@ -15,6 +14,13 @@ export class User {
 
   @Prop()
   name?: string;
+
+  @Prop({ type: String, default: '' })
+  address: string;
+
+  // Saved pincode — re-used to filter services on return visits (scope §3.2.7).
+  @Prop({ type: String, default: '' })
+  pincode: string;
 
   @Prop({ default: null })
   lastLoginAt?: Date;

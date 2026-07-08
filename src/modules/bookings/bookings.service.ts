@@ -249,6 +249,7 @@ export class BookingsService {
       advanceAmount: b.advanceAmount,
       advancePaid: b.advancePaid,
       status: b.status,
+      assignedWorkerName: b.assignedWorkerName ?? null,
       remainingDue: this.remainingDue(b),
       finalPayment: {
         walletPaid: b.finalWalletPaid,
