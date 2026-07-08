@@ -20,6 +20,14 @@ export class SmsService {
     return !!this.config.get<string>('msg91.authKey');
   }
 
+  /**
+   * True only in local dev with no SMS provider configured. Used to surface a
+   * dev OTP hint for testing. NEVER true in production or with live MSG91.
+   */
+  get isDevMock(): boolean {
+    return !this.isLive && this.config.get<string>('env') !== 'production';
+  }
+
   async sendOtp(mobile: string, code: string): Promise<void> {
     if (!this.isLive) {
       if (this.config.get<string>('env') === 'production') {

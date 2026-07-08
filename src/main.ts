@@ -14,9 +14,11 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // CORS locked to known origins (admin panel) — never '*'
+  // CORS: in production, locked to configured origins (never '*'). In local
+  // development, reflect any localhost origin so browser testing "just works".
+  const isDev = config.get<string>('env') !== 'production';
   app.enableCors({
-    origin: config.get<string[]>('corsOrigins'),
+    origin: isDev ? true : config.get<string[]>('corsOrigins'),
     credentials: true,
   });
 

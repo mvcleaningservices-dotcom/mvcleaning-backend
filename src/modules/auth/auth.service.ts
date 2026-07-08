@@ -40,7 +40,9 @@ export class AuthService {
    * Generate + store a hashed OTP and send it. Any prior OTP for this number
    * is discarded so only the newest code is valid.
    */
-  async requestOtp(rawMobile: string): Promise<{ message: string }> {
+  async requestOtp(
+    rawMobile: string,
+  ): Promise<{ message: string; devOtp?: string }> {
     const mobile = this.normalizeMobile(rawMobile);
     const code = randomInt(100000, 1000000).toString(); // 6 digits
     const codeHash = await bcrypt.hash(code, 10);
@@ -53,6 +55,12 @@ export class AuthService {
     });
 
     await this.sms.sendOtp(mobile, code);
+
+    // In local dev (no SMS provider), return the code so the app can show a
+    // test hint. Strictly gated — never present in production or with live SMS.
+    if (this.sms.isDevMock) {
+      return { message: 'OTP sent', devOtp: code };
+    }
     return { message: 'OTP sent' };
   }
 
