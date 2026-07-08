@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
+import { RazorpayService } from './razorpay.service';
 
 /**
- * PaymentsModule — placeholder skeleton (Phase 0).
- * Razorpay integration + webhook verification + idempotency (Phase 2/4).
+ * Provides the Razorpay integration. Kept dependency-free so booking/wallet
+ * modules can import it without creating circular dependencies.
  */
-@Module({})
+@Module({
+  providers: [RazorpayService],
+  exports: [RazorpayService],
+})
 export class PaymentsModule {}

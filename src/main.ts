@@ -5,7 +5,9 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true lets the Razorpay webhook verify the signature over the
+  // exact bytes received (JSON re-serialization would break the HMAC).
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 

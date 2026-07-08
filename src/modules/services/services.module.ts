@@ -1,8 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Service, ServiceSchema } from './schemas/service.schema';
+import { ServicesService } from './services.service';
+import { ServicesController } from './services.controller';
 
-/**
- * ServicesModule — placeholder skeleton (Phase 0).
- * Implemented in a later build phase; wire into AppModule when built.
- */
-@Module({})
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Service.name, schema: ServiceSchema }]),
+  ],
+  controllers: [ServicesController],
+  providers: [ServicesService],
+  exports: [ServicesService],
+})
 export class ServicesModule {}
