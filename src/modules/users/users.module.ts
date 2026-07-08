@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { User, UserSchema } from './schemas/user.schema';
+import { UsersService } from './users.service';
 
-/**
- * UsersModule — placeholder skeleton (Phase 0).
- * Implemented in a later build phase; wire into AppModule when built.
- */
-@Module({})
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+  ],
+  providers: [UsersService],
+  exports: [UsersService],
+})
 export class UsersModule {}

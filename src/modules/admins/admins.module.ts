@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Admin, AdminSchema } from './schemas/admin.schema';
+import { AdminsService } from './admins.service';
 
-/**
- * AdminsModule — placeholder skeleton (Phase 0).
- * Implemented in a later build phase; wire into AppModule when built.
- */
-@Module({})
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Admin.name, schema: AdminSchema }]),
+  ],
+  providers: [AdminsService],
+  exports: [AdminsService],
+})
 export class AdminsModule {}

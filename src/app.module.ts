@@ -7,9 +7,10 @@ import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { buildMongooseOptions } from './config/database';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 // Feature modules are added here as each build phase implements them:
-//   Phase 1: AuthModule, UsersModule, AdminsModule
+//   Phase 1: AuthModule (+ Users, Admins via Auth)   ← DONE
 //   Phase 2: ServicesModule, BookingsModule, PaymentsModule
 //   Phase 4: WalletModule
 //   Phase 3/6: WorkersModule, LeadsModule, ReportingModule
@@ -39,6 +40,7 @@ import { HealthModule } from './health/health.module';
     ]),
 
     HealthModule,
+    AuthModule,
   ],
   providers: [
     // Apply rate limiting globally.

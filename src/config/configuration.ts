@@ -12,7 +12,16 @@ export default () => ({
 
   jwt: {
     secret: process.env.JWT_SECRET || '',
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    // Consumers get a long-lived token for app auto-login (§3.2.1);
+    // admins get a shorter session that times out (§4.2).
+    consumerExpiresIn: process.env.JWT_CONSUMER_EXPIRES_IN || '30d',
+    adminExpiresIn: process.env.JWT_ADMIN_EXPIRES_IN || '1d',
+  },
+
+  // Initial Super Admin, seeded on first boot if none exists (§4.3).
+  superAdmin: {
+    username: process.env.SUPER_ADMIN_USERNAME || '',
+    password: process.env.SUPER_ADMIN_PASSWORD || '',
   },
 
   // Consumer OTP via MSG91 (Phase 1)
