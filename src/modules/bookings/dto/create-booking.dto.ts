@@ -1,6 +1,8 @@
 import {
   ArrayNotEmpty,
   IsArray,
+  IsIn,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -12,6 +14,11 @@ export class CreateBookingDto {
   @ArrayNotEmpty({ message: 'Select at least one service' })
   @IsString({ each: true })
   serviceIds: string[];
+
+  /** How to pay the advance: online gateway (default) or wallet balance. */
+  @IsOptional()
+  @IsIn(['razorpay', 'wallet'])
+  advanceMethod?: 'razorpay' | 'wallet';
 
   /** ISO date YYYY-MM-DD. */
   @IsString()

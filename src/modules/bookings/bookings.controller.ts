@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -24,5 +24,15 @@ export class BookingsController {
   @Get('mine')
   listMine(@CurrentUser() user: AuthUser) {
     return this.bookings.listMine(user.id);
+  }
+
+  /** Settle the final balance: part/all from wallet, remainder in cash. */
+  @Post(':id/final-payment')
+  payFinal(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body('walletAmount') walletAmount: number,
+  ) {
+    return this.bookings.payFinal(user.id, id, walletAmount);
   }
 }

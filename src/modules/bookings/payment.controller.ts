@@ -16,6 +16,7 @@ import type { Request } from 'express';
 
 import { BookingsService } from './bookings.service';
 import { RazorpayService } from '../payments/razorpay.service';
+import { WalletService } from '../wallet/wallet.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -28,6 +29,7 @@ export class PaymentController {
   constructor(
     private readonly bookings: BookingsService,
     private readonly razorpay: RazorpayService,
+    private readonly wallet: WalletService,
     private readonly config: ConfigService,
   ) {}
 
@@ -62,7 +64,10 @@ export class PaymentController {
     }
 
     if (orderId) {
+      // Try both — a given Razorpay order id belongs to exactly one of the
+      // two flows (booking advance or wallet top-up); the other is a no-op.
       await this.bookings.confirmAdvanceByRazorpayOrder(orderId, paymentId);
+      await this.wallet.confirmTopupByRazorpayOrder(orderId);
     }
     return { received: true };
   }

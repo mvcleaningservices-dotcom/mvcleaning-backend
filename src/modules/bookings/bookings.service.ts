@@ -12,6 +12,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { ServicesService } from '../services/services.service';
 import { SettingsService } from '../settings/settings.service';
 import { RazorpayService } from '../payments/razorpay.service';
+import { WalletService } from '../wallet/wallet.service';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 
 @Injectable()
@@ -24,6 +25,7 @@ export class BookingsService {
     private readonly services: ServicesService,
     private readonly settings: SettingsService,
     private readonly razorpay: RazorpayService,
+    private readonly wallet: WalletService,
   ) {}
 
   /** Atomic, sequential, human-friendly order number (e.g. MV-00001). */
@@ -77,6 +79,22 @@ export class BookingsService {
       booking.status = OrderStatus.CONFIRMED;
       await booking.save();
       return { booking: this.view(booking), payment: { required: false } };
+    }
+
+    // Advance paid from wallet balance (scope §3.2.5) → debit and confirm.
+    if (dto.advanceMethod === 'wallet') {
+      await this.wallet.debit(
+        userId,
+        advanceAmount,
+        `Advance for ${orderNumber}`,
+      );
+      booking.advancePaid = true;
+      booking.status = OrderStatus.CONFIRMED;
+      await booking.save();
+      return {
+        booking: this.view(booking),
+        payment: { required: false, paidVia: 'wallet' },
+      };
     }
 
     // Live Razorpay → create an order the app can open in checkout.
@@ -154,6 +172,70 @@ export class BookingsService {
     return bookings.map((b) => this.view(b));
   }
 
+  private finalPaidSoFar(b: BookingDocument): number {
+    return b.finalWalletPaid + b.finalCashPaid + b.finalOnlinePaid;
+  }
+
+  private remainingDue(b: BookingDocument): number {
+    // Total, minus advance already collected, minus any final paid so far.
+    const advance = b.advancePaid ? b.advanceAmount : 0;
+    return Math.max(0, b.totalAmount - advance - this.finalPaidSoFar(b));
+  }
+
+  /**
+   * Settle the final balance after service (scope §3.2.4): pay part/all from
+   * wallet, the remainder is collected in cash by the worker.
+   * e.g. ₹350 due → ₹200 wallet + ₹150 cash.
+   */
+  async payFinal(userId: string, orderId: string, walletAmount: number) {
+    if (!Types.ObjectId.isValid(orderId)) {
+      throw new BadRequestException('Invalid order id');
+    }
+    const order = await this.bookingModel.findOne({
+      _id: orderId,
+      user: new Types.ObjectId(userId),
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (!order.advancePaid) {
+      throw new BadRequestException('Advance not paid yet');
+    }
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Order is cancelled');
+    }
+    if (order.finalSettled) {
+      throw new BadRequestException('Final payment already settled');
+    }
+
+    const remaining = this.remainingDue(order);
+    if (remaining <= 0) {
+      order.finalSettled = true;
+      order.finalSettledAt = new Date();
+      await order.save();
+      return this.view(order);
+    }
+
+    const wallet = Math.floor(walletAmount || 0);
+    if (wallet < 0 || wallet > remaining) {
+      throw new BadRequestException(
+        `Wallet amount must be between 0 and ${remaining}`,
+      );
+    }
+    if (wallet > 0) {
+      await this.wallet.debit(
+        userId,
+        wallet,
+        `Final payment for ${order.orderNumber}`,
+      );
+    }
+    const cash = remaining - wallet;
+    order.finalWalletPaid += wallet;
+    order.finalCashPaid += cash;
+    order.finalSettled = true;
+    order.finalSettledAt = new Date();
+    await order.save();
+    return this.view(order);
+  }
+
   /** Shape a booking for API responses. */
   private view(b: BookingDocument) {
     return {
@@ -167,6 +249,13 @@ export class BookingsService {
       advanceAmount: b.advanceAmount,
       advancePaid: b.advancePaid,
       status: b.status,
+      remainingDue: this.remainingDue(b),
+      finalPayment: {
+        walletPaid: b.finalWalletPaid,
+        cashPaid: b.finalCashPaid,
+        onlinePaid: b.finalOnlinePaid,
+        settled: b.finalSettled,
+      },
     };
   }
 }

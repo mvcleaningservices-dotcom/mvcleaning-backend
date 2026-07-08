@@ -12,6 +12,7 @@ import { ServicesModule } from '../services/services.module';
 import { SettingsModule } from '../settings/settings.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { WorkersModule } from '../workers/workers.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { WorkersModule } from '../workers/workers.module';
     SettingsModule,
     PaymentsModule,
     WorkersModule,
+    WalletModule,
   ],
   controllers: [BookingsController, PaymentController, AdminOrdersController],
   providers: [BookingsService, AdminOrdersService],

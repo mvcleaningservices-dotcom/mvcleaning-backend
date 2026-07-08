@@ -122,6 +122,23 @@ export class Booking {
 
   @Prop({ type: Date, default: null })
   completedAt?: Date | null;
+
+  // ---- Final payment (Phase 4, scope §3.2.4) ----
+  // The balance after advance, settled via wallet + cash (+ online).
+  @Prop({ default: 0, min: 0 })
+  finalWalletPaid: number;
+
+  @Prop({ default: 0, min: 0 })
+  finalCashPaid: number;
+
+  @Prop({ default: 0, min: 0 })
+  finalOnlinePaid: number;
+
+  @Prop({ default: false })
+  finalSettled: boolean;
+
+  @Prop({ type: Date, default: null })
+  finalSettledAt?: Date | null;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);
