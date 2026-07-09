@@ -31,15 +31,15 @@ export class ServicesService implements OnModuleInit {
     if (count > 0) return;
 
     const pincodes = ['560001', '560002', '560003'];
-    // Dev seed only. imageUrl uses a stable placeholder image service so the
-    // consumer grid demonstrates real remote images; admins set proper photos.
-    const img = (seed: string) => `https://picsum.photos/seed/${seed}/600/400`;
+    // Dev seed. imageUrl is left empty so the app uses its bundled, name-matched
+    // service images (mobile/assets/services/*); admins can set a custom URL per
+    // service to override.
     await this.serviceModel.insertMany([
-      { name: 'Deep Cleaning', description: 'Full home deep clean', price: 1499, pincodes, category: 'Cleaning', imageUrl: img('deepclean') },
-      { name: 'Bathroom Cleaning', description: 'Complete bathroom sanitation', price: 499, pincodes, category: 'Cleaning', imageUrl: img('bathroom') },
-      { name: 'Sofa Cleaning', description: 'Shampoo & vacuum, per seat', price: 349, pincodes, category: 'Cleaning', imageUrl: img('sofa') },
-      { name: 'Kitchen Cleaning', description: 'Degrease & sanitize kitchen', price: 899, pincodes: ['560001', '560002'], category: 'Cleaning', imageUrl: img('kitchen') },
-      { name: 'Plumbing', description: 'Tap, pipe & leak repairs', price: 299, pincodes: ['560001'], category: 'Repair', imageUrl: img('plumbing') },
+      { name: 'Deep Cleaning', description: 'Full home deep clean', price: 1499, pincodes, category: 'Cleaning' },
+      { name: 'Bathroom Cleaning', description: 'Complete bathroom sanitation', price: 499, pincodes, category: 'Cleaning' },
+      { name: 'Sofa Cleaning', description: 'Shampoo & vacuum, per seat', price: 349, pincodes, category: 'Cleaning' },
+      { name: 'Kitchen Cleaning', description: 'Degrease & sanitize kitchen', price: 899, pincodes: ['560001', '560002'], category: 'Cleaning' },
+      { name: 'Plumbing', description: 'Tap, pipe & leak repairs', price: 299, pincodes: ['560001'], category: 'Repair' },
     ]);
     this.logger.log('Seeded sample services (dev).');
   }
