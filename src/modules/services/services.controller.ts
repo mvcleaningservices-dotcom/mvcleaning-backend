@@ -23,7 +23,23 @@ export class ServicesController {
       name: s.name,
       description: s.description,
       price: s.price,
+      imageUrl: s.imageUrl,
+      category: s.category,
     }));
+  }
+
+  /**
+   * GET /api/services/popular?pincode=560001
+   * Public — most-booked services in the area, from real order data. Returns
+   * an empty list (not an error) when there aren't enough bookings yet, so the
+   * app can simply hide the section rather than show anything fabricated.
+   */
+  @Get('popular')
+  async popular(@Query('pincode') pincode?: string) {
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      throw new BadRequestException('A valid 6-digit pincode is required');
+    }
+    return this.services.mostBooked(pincode);
   }
 
   /**
@@ -40,6 +56,8 @@ export class ServicesController {
       name: s.name,
       description: s.description,
       price: s.price,
+      imageUrl: s.imageUrl,
+      category: s.category,
     }));
   }
 }

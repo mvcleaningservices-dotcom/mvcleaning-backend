@@ -23,6 +23,15 @@ export class Service {
   @Prop({ type: [String], default: [], index: true })
   pincodes: string[];
 
+  // Optional marketing image (admin-set URL) shown on the consumer home grid.
+  @Prop({ default: '' })
+  imageUrl: string;
+
+  // Optional grouping used for the consumer category filter (e.g. "Cleaning",
+  // "Repair"). Free-form so admins can define their own taxonomy.
+  @Prop({ default: '', index: true })
+  category: string;
+
   @Prop({ default: true })
   isActive: boolean;
 }

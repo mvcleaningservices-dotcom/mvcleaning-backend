@@ -26,6 +26,14 @@ export class CreateServiceDto {
   @IsArray()
   @Matches(/^\d{6}$/, { each: true, message: 'Each pincode must be 6 digits' })
   pincodes?: string[];
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 }
 
 export class UpdateServiceDto {
@@ -47,6 +55,14 @@ export class UpdateServiceDto {
   @IsArray()
   @Matches(/^\d{6}$/, { each: true, message: 'Each pincode must be 6 digits' })
   pincodes?: string[];
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 
   @IsOptional()
   @IsBoolean()
