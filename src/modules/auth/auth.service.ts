@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -23,6 +24,8 @@ const MAX_VERIFY_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(Otp.name) private readonly otpModel: Model<OtpDocument>,
     private readonly sms: SmsService,
@@ -95,9 +98,14 @@ export class AuthService {
     await this.otpModel.deleteMany({ mobile });
     const user = await this.users.findOrCreateByMobile(mobile);
 
-    // Log this login as a sales follow-up candidate (scope §4.4.4). Never
-    // let a logging failure block login.
-    this.leads.logLogin(user.id, user.mobile).catch(() => {});
+    // Log this login as a sales follow-up candidate (scope §4.4.4). Never let a
+    // logging failure block login — but surface it, because a silently dropped
+    // lead is invisible in the admin panel (it just looks like nobody logged in).
+    this.leads
+      .logLogin(user.id, user.mobile)
+      .catch((err: Error) =>
+        this.logger.warn(`Lead logging failed for ${mobile}: ${err.message}`),
+      );
 
     const token = this.signToken(
       { sub: user.id, role: Role.CONSUMER },

@@ -98,10 +98,13 @@ export class Booking {
   status: OrderStatus;
 
   // Payment provider references (for idempotent confirmation).
-  @Prop({ default: null })
+  // Indexed: the Razorpay webhook looks a booking up by razorpayOrderId on every
+  // payment event, so an unindexed field would mean a full collection scan on the
+  // payment path — the one place that must stay fast (Razorpay retries slow hooks).
+  @Prop({ default: null, index: true })
   razorpayOrderId?: string;
 
-  @Prop({ default: null })
+  @Prop({ default: null, index: true })
   razorpayPaymentId?: string;
 
   // ---- Admin order management (Phase 3) ----

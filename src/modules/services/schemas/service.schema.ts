@@ -37,3 +37,8 @@ export class Service {
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);
+
+// The consumer catalog is the hottest read path in the app: every homepage load
+// runs find({ isActive, pincodes }). This compound index serves that query, and
+// its `isActive` prefix also serves the marketing listing's find({ isActive }).
+ServiceSchema.index({ isActive: 1, pincodes: 1 });

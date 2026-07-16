@@ -7,15 +7,26 @@ export class ServicesController {
 
   /**
    * GET /api/services?pincode=560001&search=clean
-   * Public — the app lists services available in the entered pincode.
+   *
+   * Public discovery. BOTH query params are optional:
+   *   - no pincode → every active service (a first-time visitor, or a crawler,
+   *     browsing before they've told us where they are)
+   *   - pincode    → only services offered in that area
+   *   - search     → works with or without a pincode
+   *
+   * pincode used to be mandatory here, which meant the site could not show a
+   * single service until the visitor typed one — so Google only ever indexed an
+   * empty pincode form, and every new user hit a wall before seeing what we sell.
+   * Availability is now confirmed at checkout, where it's actually needed.
    */
   @Get()
   async list(
     @Query('pincode') pincode?: string,
     @Query('search') search?: string,
   ) {
-    if (!pincode || !/^\d{6}$/.test(pincode)) {
-      throw new BadRequestException('A valid 6-digit pincode is required');
+    // Only validate the format when one is supplied; absence is legitimate.
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+      throw new BadRequestException('Pincode must be 6 digits');
     }
     const services = await this.services.listAvailable(pincode, search);
     return services.map((s) => ({

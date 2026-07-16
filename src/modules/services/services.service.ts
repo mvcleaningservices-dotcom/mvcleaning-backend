@@ -35,11 +35,20 @@ export class ServicesService implements OnModuleInit {
     // service images (mobile/assets/services/*); admins can set a custom URL per
     // service to override.
     await this.serviceModel.insertMany([
-      { name: 'Deep Cleaning', description: 'Full home deep clean', price: 1499, pincodes, category: 'Cleaning' },
-      { name: 'Bathroom Cleaning', description: 'Complete bathroom sanitation', price: 499, pincodes, category: 'Cleaning' },
-      { name: 'Sofa Cleaning', description: 'Shampoo & vacuum, per seat', price: 349, pincodes, category: 'Cleaning' },
-      { name: 'Kitchen Cleaning', description: 'Degrease & sanitize kitchen', price: 899, pincodes: ['560001', '560002'], category: 'Cleaning' },
-      { name: 'Plumbing', description: 'Tap, pipe & leak repairs', price: 299, pincodes: ['560001'], category: 'Repair' },
+      // Cleaning
+      { name: 'Deep Cleaning', description: 'Top-to-bottom clean for your entire home.', price: 1499, pincodes, category: 'Cleaning' },
+      { name: 'Bathroom Cleaning', description: 'Complete sanitation of tiles, fixtures & fittings.', price: 499, pincodes, category: 'Cleaning' },
+      { name: 'Kitchen Cleaning', description: 'Degrease, de-grime and sanitize your kitchen.', price: 899, pincodes, category: 'Cleaning' },
+      { name: 'Sofa Cleaning', description: 'Shampoo & vacuum, priced per seat.', price: 349, pincodes, category: 'Cleaning' },
+      { name: 'Carpet Cleaning', description: 'Deep shampoo and stain removal for carpets.', price: 599, pincodes, category: 'Cleaning' },
+      { name: 'Window Cleaning', description: 'Streak-free glass, frames and sills.', price: 399, pincodes, category: 'Cleaning' },
+      // Repair
+      { name: 'Plumbing', description: 'Tap, pipe and leak repairs by verified pros.', price: 299, pincodes, category: 'Repair' },
+      { name: 'Electrical Repair', description: 'Switches, wiring, fixtures and fault fixing.', price: 349, pincodes, category: 'Repair' },
+      { name: 'Appliance Repair', description: 'Diagnosis and repair of home appliances.', price: 449, pincodes, category: 'Repair' },
+      // Pest Control
+      { name: 'Pest Control', description: 'Safe treatment for cockroaches, ants and more.', price: 799, pincodes, category: 'Pest Control' },
+      { name: 'Home Sanitization', description: 'Full-home disinfection and sanitization.', price: 999, pincodes, category: 'Pest Control' },
     ]);
     this.logger.log('Seeded sample services (dev).');
   }
@@ -53,11 +62,19 @@ export class ServicesService implements OnModuleInit {
    * List active services available in a pincode (scope §3.2.2).
    * Optional case-insensitive name search.
    */
-  async listAvailable(pincode: string, search?: string) {
-    const filter: Record<string, unknown> = {
-      isActive: true,
-      pincodes: pincode,
-    };
+  /**
+   * Active services, optionally narrowed to an area and/or a search term.
+   *
+   * `pincode` is optional: without one we return the whole catalogue, which is
+   * what a visitor (or a crawler) sees before they've told us where they are.
+   * Search is done here rather than in the client so it keeps working as the
+   * catalogue grows — the {isActive, pincodes} index covers the filtered case.
+   */
+  async listAvailable(pincode?: string, search?: string) {
+    const filter: Record<string, unknown> = { isActive: true };
+    if (pincode) {
+      filter.pincodes = pincode;
+    }
     if (search?.trim()) {
       filter.name = { $regex: this.escapeRegex(search.trim()), $options: 'i' };
     }

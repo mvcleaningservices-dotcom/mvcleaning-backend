@@ -27,3 +27,8 @@ export class BlogPost {
 }
 
 export const BlogPostSchema = SchemaFactory.createForClass(BlogPost);
+
+// The public blog list runs find({ published }).sort({ createdAt: -1 }) — this
+// compound index covers both the filter and the sort, so Mongo never has to
+// fetch-and-sort in memory as posts accumulate.
+BlogPostSchema.index({ published: 1, createdAt: -1 });

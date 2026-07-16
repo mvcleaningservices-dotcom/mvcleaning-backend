@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -18,6 +19,8 @@ import { OrderStatus } from '../../common/enums/order-status.enum';
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
@@ -77,8 +80,15 @@ export class BookingsService {
     });
 
     // A booking means the login converted (scope §4.4.4) — never block the
-    // booking if this logging fails.
-    this.leads.markConvertedIfPending(userId, orderNumber).catch(() => {});
+    // booking if this logging fails, but don't let the failure vanish either:
+    // silent lead loss looks identical to "no leads" in the admin panel.
+    this.leads
+      .markConvertedIfPending(userId, orderNumber)
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Lead conversion logging failed for ${orderNumber}: ${err.message}`,
+        ),
+      );
 
     // No advance configured → confirm immediately, no payment step.
     if (advanceAmount <= 0) {
