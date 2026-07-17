@@ -48,7 +48,10 @@ describe('BookingsService (payment correctness)', () => {
       ],
       providers: [
         BookingsService,
-        { provide: ServicesService, useValue: { findActiveByIds: jest.fn() } },
+        // Resolves to [] by default: the catalog knows none of the throwaway
+        // ObjectIds the date tests post, which is exactly what they rely on —
+        // create() gets PAST the date check and then fails on the service lookup.
+        { provide: ServicesService, useValue: { findActiveByIds: jest.fn().mockResolvedValue([]) } },
         { provide: SettingsService, useValue: { getAdvanceAmount: jest.fn().mockResolvedValue(49) } },
         { provide: RazorpayService, useValue: { isLive: false, keyId: '' } },
         { provide: WalletService, useValue: walletMock },
@@ -86,6 +89,53 @@ describe('BookingsService (payment correctness)', () => {
       status: OrderStatus.PENDING,
       razorpayOrderId,
     });
+
+  describe('bookable date window', () => {
+    const isoIn = (days: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    const dto = (scheduledDate: string) => ({
+      serviceIds: [new Types.ObjectId().toHexString()],
+      scheduledDate,
+      timeSlot: '10:00-12:00',
+      address: '12 MG Road, Bengaluru',
+      pincode: '560001',
+    });
+
+    it('rejects a date in the past', async () => {
+      await expect(service.create(userId, dto(isoIn(-10)) as any)).rejects.toThrow(
+        /already passed/,
+      );
+    });
+
+    it('rejects an absurd far-future date', async () => {
+      await expect(service.create(userId, dto('2099-12-31') as any)).rejects.toThrow(
+        /up to 60 days ahead/,
+      );
+    });
+
+    it('rejects a date that is not real (e.g. 31 February)', async () => {
+      await expect(service.create(userId, dto('2026-02-31') as any)).rejects.toThrow(
+        /not a real date/,
+      );
+    });
+
+    it('allows today', async () => {
+      // Gets past the date check, then fails later on the unknown service id —
+      // proving the date itself was accepted.
+      await expect(service.create(userId, dto(isoIn(0)) as any)).rejects.toThrow(
+        /services are unavailable/,
+      );
+    });
+
+    it('allows a date inside the window', async () => {
+      await expect(service.create(userId, dto(isoIn(30)) as any)).rejects.toThrow(
+        /services are unavailable/,
+      );
+    });
+  });
 
   describe('indexes', () => {
     it('indexes razorpayOrderId — the payment webhook lookup key', async () => {

@@ -33,6 +33,50 @@ export class BookingsService {
     private readonly leads: LeadsService,
   ) {}
 
+  /** How far ahead a customer may book. Business rule — adjust with the client. */
+  private static readonly MAX_DAYS_AHEAD = 60;
+
+  /**
+   * Reject dates outside the bookable window.
+   *
+   * The DTO only checks the FORMAT, so "1990-01-01" and "2099-12-31" both passed.
+   * That was survivable only because the apps offered a fixed 7-day chip list; the
+   * moment a date picker exists, any date can be posted. Clients constrain their
+   * pickers, but the server has to be the one that actually enforces it.
+   *
+   * Timezone: clients send their LOCAL date, while the server may run in UTC
+   * (Render does). IST is UTC+5:30, so the server's "today" can legitimately be a
+   * day behind the customer's. A one-day grace on the lower bound absorbs that
+   * skew — the aim here is to block absurd values, not to police same-day edges.
+   */
+  private assertBookableDate(iso: string): void {
+    const date = new Date(`${iso}T00:00:00Z`);
+    // A NaN check alone is NOT enough: JS silently rolls impossible dates over,
+    // so "2026-02-31" parses happily as 3 March. Left unchecked, the customer
+    // picks one day and the worker is dispatched on another, with nothing in the
+    // record showing the swap. Round-tripping back to a string is what catches it.
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== iso) {
+      throw new BadRequestException('scheduledDate is not a real date');
+    }
+
+    const today = new Date();
+    const earliest = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1);
+    const latest = Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() + BookingsService.MAX_DAYS_AHEAD,
+    );
+
+    if (date.getTime() < earliest) {
+      throw new BadRequestException('Please choose a date that has not already passed');
+    }
+    if (date.getTime() > latest) {
+      throw new BadRequestException(
+        `Bookings can only be made up to ${BookingsService.MAX_DAYS_AHEAD} days ahead`,
+      );
+    }
+  }
+
   /** Atomic, sequential, human-friendly order number (e.g. MV-00001). */
   private async nextOrderNumber(): Promise<string> {
     const counter = await this.counterModel.findOneAndUpdate(
@@ -49,6 +93,8 @@ export class BookingsService {
    * - Advance amount is read from platform settings (may be 0 → auto-confirm).
    */
   async create(userId: string, dto: CreateBookingDto) {
+    this.assertBookableDate(dto.scheduledDate);
+
     const services = await this.services.findActiveByIds(dto.serviceIds);
     if (services.length !== dto.serviceIds.length) {
       throw new BadRequestException(
