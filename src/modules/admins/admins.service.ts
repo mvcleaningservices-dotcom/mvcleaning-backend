@@ -92,6 +92,27 @@ export class AdminsService implements OnModuleInit {
     return this.view(admin);
   }
 
+  /**
+   * Change the signed-in admin's OWN password (any role, including Super Admin).
+   * Requires the current password — so a stolen session alone can't lock the
+   * real owner out. This is the supported way to rotate the Super Admin password
+   * without deleting the seeded record in the database.
+   */
+  async changeOwnPassword(id: string, currentPassword: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters');
+    }
+    const admin = await this.findById(id);
+    if (!admin) throw new NotFoundException('Admin not found');
+
+    const ok = await this.verifyPassword(currentPassword, admin.passwordHash);
+    if (!ok) throw new BadRequestException('Current password is incorrect');
+
+    admin.passwordHash = await bcrypt.hash(newPassword, 10);
+    await admin.save();
+    return { success: true };
+  }
+
   async resetSubAdminPassword(id: string, newPassword: string) {
     if (!newPassword || newPassword.length < 6) {
       throw new BadRequestException('Password must be at least 6 characters');
