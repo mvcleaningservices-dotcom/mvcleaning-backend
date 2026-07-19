@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Environment — NEVER commit real secrets. Keep .env.example as the template.
+.env*
+!.env.example
+
+# Vercel
+.vercel
+
+# Logs, coverage, misc
+*.log
+coverage
+.DS_Store
