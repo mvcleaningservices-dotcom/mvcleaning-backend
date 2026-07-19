@@ -43,12 +43,19 @@ import { InquiriesModule } from './modules/inquiries/inquiries.module';
       useFactory: buildMongooseOptions,
     }),
 
-    // Global rate limiting — protects auth/OTP endpoints from abuse.
-    // Default: 10 requests / 60s per IP (tightened per-route in Phase 1).
+    // Global rate limiting. This is the FLOOR for every route; the endpoints
+    // that actually invite abuse (OTP request/verify) set their own much tighter
+    // limits via @Throttle and are unaffected by this number.
+    //
+    // 10/min was far too low for real use: opening one admin order is already
+    // ~3 requests (list + detail + workers) and every action triggers a refresh,
+    // and a customer browsing hits several endpoints per screen — so normal usage
+    // tripped a 429. 100/min per IP leaves genuine bursts room while still capping
+    // a scripted flood.
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 10,
+        limit: 100,
       },
     ]),
 
