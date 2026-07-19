@@ -276,6 +276,11 @@ export class AdminOrdersService {
         at: r.at,
       })),
       proofImageCount: o.proofImages.length,
+      // The images themselves — only in the detail view (this shape is fetched
+      // one order at a time), never in the list summary, so a page of orders
+      // isn't dragging megabytes of base64 with it. Without this the admin could
+      // upload proof photos but no one could ever look at them.
+      proofImages: o.proofImages,
       cancelReason: o.cancelReason ?? null,
       completedAt: o.completedAt ?? null,
     };
