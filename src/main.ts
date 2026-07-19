@@ -1,40 +1,26 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { configureApp } from './bootstrap';
 
+/**
+ * Local / self-hosted entry point: a long-running HTTP server.
+ *
+ * Vercel does NOT use this file — it calls the serverless handler in
+ * `api/index.ts`. Both share configureApp() so they stay identical; the only
+ * difference is this one calls listen() and that one calls init().
+ */
 async function bootstrap() {
-  // rawBody: true lets the Razorpay webhook verify the signature over the
-  // exact bytes received (JSON re-serialization would break the HMAC).
+  // rawBody: true lets the Razorpay webhook verify the signature over the exact
+  // bytes received (JSON re-serialization would break the HMAC).
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  configureApp(app);
+
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
-
-  // Security headers
-  app.use(helmet());
-
-  // CORS: in production, locked to configured origins (never '*'). In local
-  // development, reflect any localhost origin so browser testing "just works".
-  const isDev = config.get<string>('env') !== 'production';
-  app.enableCors({
-    origin: isDev ? true : config.get<string[]>('corsOrigins'),
-    credentials: true,
-  });
-
-  // Global input validation — reject unknown/malformed payloads on every endpoint
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // strip properties not in the DTO
-      forbidNonWhitelisted: true, // 400 on unexpected properties
-      transform: true, // auto-convert payloads to DTO types
-    }),
-  );
-
-  // All routes prefixed with /api
-  app.setGlobalPrefix('api');
-
   const port = config.get<number>('port') ?? 3000;
+
   await app.listen(port);
   logger.log(`🚀 API running on http://localhost:${port}/api`);
   logger.log(`   Health check: http://localhost:${port}/api/health`);

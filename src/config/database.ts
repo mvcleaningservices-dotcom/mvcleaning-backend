@@ -20,7 +20,21 @@ export async function buildMongooseOptions(
 
   if (uri) {
     logger.log('Connecting to configured MongoDB (MONGODB_URI)');
-    return { uri };
+    // Pool sizing is tuned for serverless (Vercel), where many function
+    // instances each hold their own pool against one Atlas cluster:
+    //   maxPoolSize 10 — cap per instance so a burst of instances can't blow
+    //     past Atlas's connection limit (M0 free tops out at 500).
+    //   minPoolSize 0  — an idle warm instance keeps no open connections, so it
+    //     isn't sitting on the cluster's budget between requests.
+    //   serverSelectionTimeoutMS 8000 — fail fast if the DB is unreachable on a
+    //     cold start, rather than hanging until the function times out.
+    // These are harmless on a normal always-on server too.
+    return {
+      uri,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 8000,
+    };
   }
 
   if (env === 'production') {
