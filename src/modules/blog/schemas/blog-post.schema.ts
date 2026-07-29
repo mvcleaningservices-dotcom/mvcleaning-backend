@@ -22,6 +22,10 @@ export class BlogPost {
   @Prop({ required: true })
   content: string;
 
+  // Cover image — a Cloudinary URL (or empty). Optional so old posts stay valid.
+  @Prop({ default: '' })
+  coverImage: string;
+
   @Prop({ default: true })
   published: boolean;
 }

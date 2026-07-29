@@ -38,6 +38,13 @@ export default () => ({
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
 
+  // Cloudinary image hosting/CDN. Signed uploads keep the secret server-side.
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
+
   // Allowed origins for CORS (admin panel). Comma-separated.
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173')
     .split(',')

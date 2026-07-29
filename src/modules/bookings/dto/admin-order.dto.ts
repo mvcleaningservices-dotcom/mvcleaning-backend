@@ -4,9 +4,19 @@ import { OrderStatus } from '../../../common/enums/order-status.enum';
 export class AssignWorkerDto {
   @IsString()
   workerId: string;
+
+  /** Service name this worker is being assigned to (links to order item). */
+  @IsOptional()
+  @IsString()
+  serviceName?: string;
 }
 
 export class ReassignWorkerDto {
+  /** The worker being replaced (their workerId in the assignedWorkers array). */
+  @IsString()
+  oldWorkerId: string;
+
+  /** The new worker taking over. */
   @IsString()
   workerId: string;
 

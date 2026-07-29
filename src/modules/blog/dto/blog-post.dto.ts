@@ -20,6 +20,10 @@ export class CreateBlogPostDto {
   content: string;
 
   @IsOptional()
+  @IsString()
+  coverImage?: string;
+
+  @IsOptional()
   @IsBoolean()
   published?: boolean;
 }
@@ -39,6 +43,10 @@ export class UpdateBlogPostDto {
   @IsString()
   @MinLength(10)
   content?: string;
+
+  @IsOptional()
+  @IsString()
+  coverImage?: string;
 
   @IsOptional()
   @IsBoolean()

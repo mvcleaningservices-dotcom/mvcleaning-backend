@@ -21,6 +21,14 @@ export class Worker {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  /**
+   * List of service names this worker is qualified to perform.
+   * Stored as plain strings (matching the ServiceItem.name field).
+   * Existing workers without this field default to an empty array.
+   */
+  @Prop({ type: [String], default: [] })
+  services: string[];
 }
 
 export const WorkerSchema = SchemaFactory.createForClass(Worker);

@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -23,6 +24,11 @@ export class CreateWorkerDto {
   @IsString()
   @MaxLength(80)
   area?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  services?: string[];
 }
 
 export class UpdateWorkerDto {
@@ -47,4 +53,9 @@ export class UpdateWorkerDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  services?: string[];
 }

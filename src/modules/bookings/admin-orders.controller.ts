@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -66,9 +67,32 @@ export class AdminOrdersController {
     @Body() dto: AssignWorkerDto,
     @CurrentUser() admin: AuthUser,
   ) {
-    const result = await this.orders.assign(id, dto.workerId, admin.username ?? admin.id);
+    const result = await this.orders.assign(
+      id,
+      dto.workerId,
+      dto.serviceName ?? '',
+      admin.username ?? admin.id,
+    );
     this.activity
-      .log(admin.username ?? admin.id, admin.role, 'order.assign', `${result.orderNumber} -> ${result.assignedWorkerName}`)
+      .log(
+        admin.username ?? admin.id,
+        admin.role,
+        'order.assign',
+        `${result.orderNumber} -> ${dto.serviceName || 'slot'}: ${result.assignedWorkerName}`,
+      )
+      .catch(() => {});
+    return result;
+  }
+
+  @Delete(':id/assign/:workerId')
+  async removeAssignment(
+    @Param('id') id: string,
+    @Param('workerId') workerId: string,
+    @CurrentUser() admin: AuthUser,
+  ) {
+    const result = await this.orders.removeAssignment(id, workerId);
+    this.activity
+      .log(admin.username ?? admin.id, admin.role, 'order.unassign', `${result.orderNumber}`)
       .catch(() => {});
     return result;
   }
@@ -79,7 +103,13 @@ export class AdminOrdersController {
     @Body() dto: ReassignWorkerDto,
     @CurrentUser() admin: AuthUser,
   ) {
-    return this.orders.reassign(id, dto.workerId, dto.reason, admin.username ?? admin.id);
+    return this.orders.reassign(
+      id,
+      dto.oldWorkerId,
+      dto.workerId,
+      dto.reason,
+      admin.username ?? admin.id,
+    );
   }
 
   @Patch(':id/status')

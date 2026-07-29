@@ -53,10 +53,42 @@ export class AdminOrdersService {
     }
     const order = await this.bookingModel.findById(id);
     if (!order) throw new NotFoundException('Order not found');
+    this.ensureAssignedWorkers(order);
     return order;
   }
 
-  /** Admin order list with optional filters (scope §4.4.1, §4.3.3: date range, worker, area, status). */
+  /**
+   * Migrate legacy single worker to assignedWorkers array in memory if needed.
+   */
+  private ensureAssignedWorkers(order: BookingDocument) {
+    if ((!order.assignedWorkers || order.assignedWorkers.length === 0) && order.assignedWorker && order.assignedWorkerName) {
+      order.assignedWorkers = [
+        {
+          workerId: order.assignedWorker as any,
+          workerName: order.assignedWorkerName,
+          serviceName: '',
+        },
+      ];
+    }
+  }
+
+  /**
+   * Sync the legacy single-worker fields from the assignedWorkers array.
+   * assignedWorker/assignedWorkerName always mirror the FIRST entry so that
+   * existing status guards, filters and activity logs continue to work.
+   */
+  private syncLegacyFields(order: BookingDocument) {
+    if (order.assignedWorkers && order.assignedWorkers.length > 0) {
+      const first = order.assignedWorkers[0];
+      order.assignedWorker = first.workerId as Types.ObjectId;
+      order.assignedWorkerName = first.workerName;
+    } else {
+      order.assignedWorker = null;
+      order.assignedWorkerName = null;
+    }
+  }
+
+  /** Admin order list with optional filters (scope §4.4.1, §4.3.3). */
   async list(filters: {
     status?: string;
     workerId?: string;
@@ -68,7 +100,10 @@ export class AdminOrdersService {
     if (filters.status) query.status = filters.status;
     if (filters.area) query.pincode = filters.area;
     if (filters.workerId && Types.ObjectId.isValid(filters.workerId)) {
-      query.assignedWorker = new Types.ObjectId(filters.workerId);
+      query.$or = [
+        { assignedWorker: new Types.ObjectId(filters.workerId) },
+        { 'assignedWorkers.workerId': new Types.ObjectId(filters.workerId) },
+      ];
     }
     if (filters.from || filters.to) {
       const createdAt: Record<string, Date> = {};
@@ -94,53 +129,161 @@ export class AdminOrdersService {
     return this.full(order);
   }
 
-  /** First-time worker assignment. Order must be CONFIRMED and unassigned. */
-  async assign(id: string, workerId: string, adminUsername: string) {
+  /**
+   * Assign a worker to a specific service slot (Admin Fix #007).
+   *
+   * Rules:
+   * - Order must be CONFIRMED or already ASSIGNED/IN_PROGRESS (multi-worker
+   *   allows adding more workers to an already-active order).
+   * - The same worker can only appear once in the array (duplicate guard).
+   * - A serviceName slot can be replaced — it removes the previous entry for
+   *   that service before adding the new one.
+   * - The order status moves to ASSIGNED the first time any worker is added.
+   */
+  async assign(
+    id: string,
+    workerId: string,
+    serviceName: string,
+    adminUsername: string,
+  ) {
     const order = await this.load(id);
-    if (order.assignedWorker) {
+
+    if (!ACTIVE_STATUSES.includes(order.status)) {
       throw new BadRequestException(
-        'Order already has a worker — use reassign instead',
+        'Order must be confirmed or active to assign workers',
       );
     }
-    this.assertTransition(order.status, OrderStatus.ASSIGNED);
-    const worker = await this.workers.getAssignable(workerId);
 
-    order.assignedWorker = worker._id as Types.ObjectId;
-    order.assignedWorkerName = worker.name;
-    order.status = OrderStatus.ASSIGNED;
+    const worker = await this.workers.getAssignable(workerId);
+    const workerObjId = worker._id as Types.ObjectId;
+
+    // If this service slot already has a worker, remove it first (replace).
+    if (serviceName) {
+      order.assignedWorkers = (order.assignedWorkers ?? []).filter(
+        (e: any) => e.serviceName !== serviceName,
+      ) as any;
+    }
+
+    // A worker CAN cover several services in one order (e.g. Plumbing +
+    // Electrical), so we don't block a worker who's already on the order. We
+    // only block assigning the same worker to the SAME service twice — and even
+    // that can't normally happen because the replace-per-slot above already
+    // cleared this service. This guards the extra unnamed slots.
+    const duplicate = (order.assignedWorkers ?? []).some(
+      (e: any) =>
+        String(e.workerId) === String(workerObjId) &&
+        (e.serviceName ?? '') === (serviceName ?? ''),
+    );
+    if (duplicate) {
+      throw new BadRequestException(
+        `${worker.name} is already assigned to ${serviceName || 'this order'}`,
+      );
+    }
+
+    (order.assignedWorkers as any[]).push({
+      workerId: workerObjId,
+      workerName: worker.name,
+      serviceName: serviceName ?? '',
+    });
+
+    this.syncLegacyFields(order);
+
+    // Move to ASSIGNED on first assignment.
+    if (order.status === OrderStatus.CONFIRMED) {
+      order.status = OrderStatus.ASSIGNED;
+    }
+
     await order.save();
     return this.full(order);
   }
 
-  /** Emergency reassignment with a logged audit trail (scope §4.4.1a). */
+  /**
+   * Remove a worker from a specific slot (Admin Fix #007).
+   * If the removed worker was the primary (first), the next entry becomes primary.
+   * If the array becomes empty, status stays as-is (admin must cancel manually).
+   */
+  async removeAssignment(id: string, workerId: string) {
+    const order = await this.load(id);
+
+    if (!ACTIVE_STATUSES.includes(order.status)) {
+      throw new BadRequestException(
+        'Cannot modify assignments on a completed or cancelled order',
+      );
+    }
+
+    const before = (order.assignedWorkers ?? []).length;
+    order.assignedWorkers = (order.assignedWorkers ?? []).filter(
+      (e: any) => String(e.workerId) !== workerId,
+    ) as any;
+
+    if ((order.assignedWorkers ?? []).length === before) {
+      throw new NotFoundException('Worker not found in this order');
+    }
+
+    this.syncLegacyFields(order);
+    await order.save();
+    return this.full(order);
+  }
+
+  /** Emergency reassignment — replaces ONE specific worker slot. */
   async reassign(
     id: string,
-    workerId: string,
+    oldWorkerId: string,
+    newWorkerId: string,
     reason: string,
     adminUsername: string,
   ) {
     const order = await this.load(id);
+
     if (!ACTIVE_STATUSES.includes(order.status)) {
       throw new BadRequestException(
-        'Only active (non-completed/cancelled) orders can be reassigned',
+        'Only active orders can be reassigned',
       );
     }
     if (!reason?.trim()) {
       throw new BadRequestException('A reassignment reason is required');
     }
-    const worker = await this.workers.getAssignable(workerId);
+
+    const newWorker = await this.workers.getAssignable(newWorkerId);
+    const newWorkerObjId = newWorker._id as Types.ObjectId;
+
+    // Find the slot being replaced.
+    const slotIndex = (order.assignedWorkers ?? []).findIndex(
+      (e: any) => String(e.workerId) === oldWorkerId,
+    );
+
+    let fromWorkerName: string | null = null;
+    if (slotIndex >= 0) {
+      fromWorkerName = (order.assignedWorkers as any[])[slotIndex].workerName;
+      const serviceName = (order.assignedWorkers as any[])[slotIndex].serviceName;
+      (order.assignedWorkers as any[])[slotIndex] = {
+        workerId: newWorkerObjId,
+        workerName: newWorker.name,
+        serviceName,
+      };
+    } else {
+      // Fallback: legacy reassign (no slot found — just push new worker).
+      fromWorkerName = order.assignedWorkerName ?? null;
+      (order.assignedWorkers as any[]).push({
+        workerId: newWorkerObjId,
+        workerName: newWorker.name,
+        serviceName: '',
+      });
+    }
 
     order.reassignments.push({
-      fromWorkerName: order.assignedWorkerName ?? null,
-      toWorkerName: worker.name,
+      fromWorkerName,
+      toWorkerName: newWorker.name,
       reason: reason.trim(),
       adminUsername,
     } as any);
-    order.assignedWorker = worker._id as Types.ObjectId;
-    order.assignedWorkerName = worker.name;
+
+    this.syncLegacyFields(order);
+
     if (order.status === OrderStatus.CONFIRMED) {
       order.status = OrderStatus.ASSIGNED;
     }
+
     await order.save();
     return this.full(order);
   }
@@ -152,7 +295,7 @@ export class AdminOrdersService {
       (next === OrderStatus.IN_PROGRESS || next === OrderStatus.COMPLETED) &&
       !order.assignedWorker
     ) {
-      throw new BadRequestException('Assign a worker before progressing');
+      throw new BadRequestException('Assign at least one worker before progressing');
     }
     order.status = next;
     if (next === OrderStatus.COMPLETED) order.completedAt = new Date();
@@ -204,11 +347,11 @@ export class AdminOrdersService {
     const wid = worker._id as Types.ObjectId;
     const [activeCount, orders] = await Promise.all([
       this.bookingModel.countDocuments({
-        assignedWorker: wid,
+        $or: [{ assignedWorker: wid }, { 'assignedWorkers.workerId': wid }],
         status: { $in: ACTIVE_STATUSES },
       }),
       this.bookingModel
-        .find({ assignedWorker: wid })
+        .find({ $or: [{ assignedWorker: wid }, { 'assignedWorkers.workerId': wid }] })
         .sort({ createdAt: -1 })
         .limit(50)
         .exec(),
@@ -229,6 +372,7 @@ export class AdminOrdersService {
 
   // ---- shaping ----
   private summary(o: BookingDocument) {
+    this.ensureAssignedWorkers(o);
     const user = o.user as any;
     return {
       id: o.id,
@@ -244,10 +388,14 @@ export class AdminOrdersService {
       advanceAmount: o.advanceAmount,
       advancePaid: o.advancePaid,
       status: o.status,
+      // Legacy field — still the "primary" worker name for the table column.
       assignedWorkerName: o.assignedWorkerName ?? null,
-      // Cash reconciliation basics (scope §5, Phase 5 recommendation) — the
-      // consumer records how the final balance was split when they settle it
-      // (wallet vs. cash to the worker); surfaced here for admin visibility.
+      // Full array so the orders table tooltip / list can show all workers.
+      assignedWorkers: (o.assignedWorkers ?? []).map((e: any) => ({
+        workerId: String(e.workerId),
+        workerName: e.workerName,
+        serviceName: e.serviceName ?? '',
+      })),
       remainingDue: this.remainingDue(o),
       finalPayment: {
         walletPaid: o.finalWalletPaid,
@@ -276,10 +424,6 @@ export class AdminOrdersService {
         at: r.at,
       })),
       proofImageCount: o.proofImages.length,
-      // The images themselves — only in the detail view (this shape is fetched
-      // one order at a time), never in the list summary, so a page of orders
-      // isn't dragging megabytes of base64 with it. Without this the admin could
-      // upload proof photos but no one could ever look at them.
       proofImages: o.proofImages,
       cancelReason: o.cancelReason ?? null,
       completedAt: o.completedAt ?? null,

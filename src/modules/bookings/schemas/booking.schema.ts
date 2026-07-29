@@ -50,6 +50,25 @@ export class Reassignment {
 const ReassignmentSchema = SchemaFactory.createForClass(Reassignment);
 
 /**
+ * One slot in the multi-worker assignment array (Admin Fix #007).
+ * Each service item in an order can have its own dedicated worker.
+ * serviceName links this slot back to a BookingItem label.
+ */
+@Schema({ _id: false })
+export class AssignedWorkerEntry {
+  @Prop({ type: Types.ObjectId, ref: 'Worker', required: true })
+  workerId: Types.ObjectId;
+
+  @Prop({ required: true })
+  workerName: string;
+
+  /** The service label this worker is assigned to. Empty = generic extra slot. */
+  @Prop({ type: String, default: '' })
+  serviceName: string;
+}
+const AssignedWorkerEntrySchema = SchemaFactory.createForClass(AssignedWorkerEntry);
+
+/**
  * A consumer booking / order (scope §3.1, §3.2.3, §3.2.6).
  * Created as PENDING; becomes CONFIRMED once the advance is paid (or when the
  * configured advance is 0). Payment provider details support idempotent
@@ -98,9 +117,6 @@ export class Booking {
   status: OrderStatus;
 
   // Payment provider references (for idempotent confirmation).
-  // Indexed: the Razorpay webhook looks a booking up by razorpayOrderId on every
-  // payment event, so an unindexed field would mean a full collection scan on the
-  // payment path — the one place that must stay fast (Razorpay retries slow hooks).
   @Prop({ default: null, index: true })
   razorpayOrderId?: string;
 
@@ -109,11 +125,25 @@ export class Booking {
 
   // ---- Admin order management (Phase 3) ----
 
+  /**
+   * Legacy single-worker fields — kept for backward compatibility with
+   * status-transition guards and existing queries.
+   * Always mirrors the FIRST entry in assignedWorkers (or null when empty).
+   */
   @Prop({ type: Types.ObjectId, ref: 'Worker', default: null, index: true })
   assignedWorker?: Types.ObjectId | null;
 
   @Prop({ type: String, default: null })
   assignedWorkerName?: string | null;
+
+  /**
+   * Multi-worker assignment array (Admin Fix #007).
+   * One slot per service item. Admins assign each service to a specific worker
+   * independently. Slots can be added, replaced or removed without affecting
+   * the others.
+   */
+  @Prop({ type: [AssignedWorkerEntrySchema], default: [] })
+  assignedWorkers: AssignedWorkerEntry[];
 
   @Prop({ type: [OrderNoteSchema], default: [] })
   notes: OrderNote[];
@@ -132,7 +162,6 @@ export class Booking {
   completedAt?: Date | null;
 
   // ---- Final payment (Phase 4, scope §3.2.4) ----
-  // The balance after advance, settled via wallet + cash (+ online).
   @Prop({ default: 0, min: 0 })
   finalWalletPaid: number;
 

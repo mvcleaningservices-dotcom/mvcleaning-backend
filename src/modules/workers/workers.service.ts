@@ -20,6 +20,7 @@ export class WorkersService {
       name: dto.name,
       contactNumber: dto.contactNumber,
       area: dto.area ?? '',
+      services: dto.services ?? [],
     });
   }
 
@@ -52,6 +53,7 @@ export class WorkersService {
     if (dto.contactNumber !== undefined) worker.contactNumber = dto.contactNumber;
     if (dto.area !== undefined) worker.area = dto.area;
     if (dto.isActive !== undefined) worker.isActive = dto.isActive;
+    if (dto.services !== undefined) worker.services = dto.services;
     await worker.save();
     return worker;
   }
@@ -63,6 +65,7 @@ export class WorkersService {
       contactNumber: w.contactNumber,
       area: w.area,
       isActive: w.isActive,
+      services: w.services ?? [],
     };
   }
 }

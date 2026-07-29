@@ -84,6 +84,7 @@ export class BlogService implements OnModuleInit {
     if (dto.title !== undefined) post.title = dto.title;
     if (dto.excerpt !== undefined) post.excerpt = dto.excerpt;
     if (dto.content !== undefined) post.content = dto.content;
+    if (dto.coverImage !== undefined) post.coverImage = dto.coverImage;
     if (dto.published !== undefined) post.published = dto.published;
     await post.save();
     return this.full(post);
@@ -95,6 +96,7 @@ export class BlogService implements OnModuleInit {
       title: p.title,
       slug: p.slug,
       excerpt: p.excerpt,
+      coverImage: p.coverImage ?? '',
       publishedAt: (p as any).createdAt,
     };
   }
