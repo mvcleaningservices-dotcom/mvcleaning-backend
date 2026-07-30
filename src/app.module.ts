@@ -19,6 +19,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
 import { BlogModule } from './modules/blog/blog.module';
 import { InquiriesModule } from './modules/inquiries/inquiries.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { PartnerModule } from './modules/partner/partner.module';
 
 // Feature modules are added here as each build phase implements them:
 //   Phase 1: AuthModule (+ Users, Admins via Auth)          ← DONE
@@ -73,6 +74,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     BlogModule,
     InquiriesModule,
     UploadsModule,
+    PartnerModule,
   ],
   providers: [
     // Apply rate limiting globally.

@@ -29,6 +29,23 @@ export class CreateWorkerDto {
   @IsArray()
   @IsString({ each: true })
   services?: string[];
+
+  // Optional Service Partner login. If both are given the worker can log in to
+  // their own portal; if omitted the worker has no login (unchanged behaviour).
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(40)
+  @Matches(/^[a-zA-Z0-9._-]+$/, {
+    message: 'Username may only contain letters, numbers, dot, underscore, hyphen',
+  })
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(72)
+  password?: string;
 }
 
 export class UpdateWorkerDto {
@@ -58,4 +75,19 @@ export class UpdateWorkerDto {
   @IsArray()
   @IsString({ each: true })
   services?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(40)
+  @Matches(/^[a-zA-Z0-9._-]+$/, {
+    message: 'Username may only contain letters, numbers, dot, underscore, hyphen',
+  })
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(72)
+  password?: string;
 }

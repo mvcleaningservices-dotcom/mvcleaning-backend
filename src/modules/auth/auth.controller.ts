@@ -53,6 +53,14 @@ export class AuthController {
     return this.auth.adminLogin(dto.username, dto.password);
   }
 
+  /** Service Partner (worker) login — optional worker portal access. */
+  @Post('partner/login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  partnerLogin(@Body() dto: AdminLoginDto) {
+    return this.auth.partnerLogin(dto.username, dto.password);
+  }
+
   /** Returns the current authenticated identity — used by the app for auto-login. */
   @Get('me')
   @UseGuards(JwtAuthGuard)

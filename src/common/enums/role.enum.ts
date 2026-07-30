@@ -8,4 +8,6 @@ export enum Role {
   CONSUMER = 'consumer',
   SUB_ADMIN = 'sub_admin',
   SUPER_ADMIN = 'super_admin',
+  // Optional login for a worker so they can view their own orders/earnings.
+  SERVICE_PARTNER = 'service_partner',
 }

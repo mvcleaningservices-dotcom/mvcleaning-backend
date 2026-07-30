@@ -16,6 +16,7 @@ import { SmsService } from './sms/sms.service';
 import { UsersService } from '../users/users.service';
 import { AdminsService } from '../admins/admins.service';
 import { LeadsService } from '../leads/leads.service';
+import { WorkersService } from '../workers/workers.service';
 import { Role } from '../../common/enums/role.enum';
 import { JwtPayload } from '../../common/types/jwt-payload';
 
@@ -32,6 +33,7 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly admins: AdminsService,
     private readonly leads: LeadsService,
+    private readonly workers: WorkersService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -141,6 +143,31 @@ export class AuthService {
     return {
       accessToken: token,
       admin: { id: admin.id, username: admin.username, role: admin.role },
+    };
+  }
+
+  /**
+   * Service Partner (worker) login. Optional feature — only workers an admin
+   * gave a username/password can log in, and their token is scoped to their own
+   * worker id with the SERVICE_PARTNER role, which the admin RolesGuards reject.
+   */
+  async partnerLogin(username: string, password: string) {
+    const worker = await this.workers.findByUsername(username);
+    // Same generic error for missing/inactive/no-login/wrong-password.
+    if (!worker || !worker.isActive || !worker.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const ok = await this.workers.verifyPassword(password, worker.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const token = this.signToken(
+      { sub: worker.id, role: Role.SERVICE_PARTNER, username: worker.username },
+      this.config.get<string>('jwt.adminExpiresIn') || '1d',
+    );
+    return {
+      accessToken: token,
+      partner: { id: worker.id, name: worker.name, username: worker.username },
     };
   }
 

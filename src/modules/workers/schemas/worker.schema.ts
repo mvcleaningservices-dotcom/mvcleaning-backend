@@ -29,6 +29,18 @@ export class Worker {
    */
   @Prop({ type: [String], default: [] })
   services: string[];
+
+  /**
+   * Optional login for a Service Partner (worker). Both are optional and only
+   * set when an admin gives this worker portal access — existing workers with
+   * neither behave exactly as before (no login). `sparse` lets many workers have
+   * no username while keeping the ones that do unique.
+   */
+  @Prop({ trim: true, lowercase: true, index: { unique: true, sparse: true } })
+  username?: string;
+
+  @Prop()
+  passwordHash?: string;
 }
 
 export const WorkerSchema = SchemaFactory.createForClass(Worker);

@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { AdminsModule } from '../admins/admins.module';
 import { LeadsModule } from '../leads/leads.module';
+import { WorkersModule } from '../workers/workers.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LeadsModule } from '../leads/leads.module';
     UsersModule,
     AdminsModule,
     LeadsModule,
+    WorkersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, SmsService, JwtStrategy],
