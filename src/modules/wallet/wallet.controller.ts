@@ -4,12 +4,14 @@ import {
   ForbiddenException,
   Get,
   Post,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IsInt, IsString, Min } from 'class-validator';
 import { WalletService } from './wallet.service';
 import { RazorpayService } from '../payments/razorpay.service';
+import { VerifyPaymentDto } from '../bookings/dto/verify-payment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -51,6 +53,29 @@ export class WalletController {
   @Post('topup')
   topup(@CurrentUser() user: AuthUser, @Body() dto: TopupDto) {
     return this.wallet.createTopup(user.id, dto.amount);
+  }
+
+  /**
+   * Credit a top-up from the Razorpay Checkout success callback.
+   *
+   * Mirrors POST /payments/verify for bookings: the browser is untrusted, but
+   * the signature it forwards is an HMAC only Razorpay can produce, so
+   * verifying it server-side is what makes this safe — and it works without a
+   * registered webhook. Idempotent, so a later webhook is a no-op.
+   */
+  @Post('topup/verify')
+  async verifyTopup(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: VerifyPaymentDto,
+  ) {
+    const ok = this.razorpay.verifyCheckoutSignature(
+      dto.razorpayOrderId,
+      dto.razorpayPaymentId,
+      dto.razorpaySignature,
+    );
+    if (!ok) throw new UnauthorizedException('Payment verification failed');
+
+    return this.wallet.confirmTopupByCheckout(user.id, dto.razorpayOrderId);
   }
 
   /** DEV-ONLY: simulate a successful top-up in test mode. */

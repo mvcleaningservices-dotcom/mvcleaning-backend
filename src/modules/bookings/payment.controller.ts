@@ -15,6 +15,7 @@ import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { BookingsService } from './bookings.service';
+import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RazorpayService } from '../payments/razorpay.service';
 import { WalletService } from '../wallet/wallet.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -70,6 +71,36 @@ export class PaymentController {
       await this.wallet.confirmTopupByRazorpayOrder(orderId);
     }
     return { received: true };
+  }
+
+  /**
+   * Confirm an advance from the Razorpay Checkout success callback.
+   *
+   * The browser cannot be trusted, but the signature it forwards can be: it is
+   * an HMAC over `orderId|paymentId` keyed by our API secret, so only Razorpay
+   * can produce it. Verifying it server-side is what makes this safe, and it
+   * works without a registered webhook.
+   *
+   * The webhook (above) stays the more robust path — it still fires if the user
+   * closes the tab before this call lands — and both are idempotent, so
+   * whichever arrives second is a no-op.
+   */
+  @Post('verify')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.CONSUMER)
+  async verify(@CurrentUser() user: AuthUser, @Body() dto: VerifyPaymentDto) {
+    const ok = this.razorpay.verifyCheckoutSignature(
+      dto.razorpayOrderId,
+      dto.razorpayPaymentId,
+      dto.razorpaySignature,
+    );
+    if (!ok) throw new UnauthorizedException('Payment verification failed');
+
+    return this.bookings.confirmAdvanceByCheckout(
+      user.id,
+      dto.razorpayOrderId,
+      dto.razorpayPaymentId,
+    );
   }
 
   /**

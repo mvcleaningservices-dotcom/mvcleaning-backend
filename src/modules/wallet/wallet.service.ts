@@ -107,6 +107,33 @@ export class WalletService {
     return true;
   }
 
+  /**
+   * Credit a top-up from a **verified** Razorpay checkout callback.
+   *
+   * The signature is checked by the caller before this runs, so reaching here
+   * means Razorpay vouched for the payment. Scoped to the calling user's own
+   * transaction and matched on `razorpayOrderId`, so a valid signature for one
+   * order can never credit a different wallet.
+   *
+   * Idempotent: the PENDING filter means a retry (or a webhook landing
+   * afterwards) credits nothing a second time.
+   */
+  async confirmTopupByCheckout(userId: string, razorpayOrderId: string) {
+    const txn = await this.txnModel.findOneAndUpdate(
+      {
+        razorpayOrderId,
+        user: new Types.ObjectId(userId),
+        type: WalletTxnType.TOPUP,
+        status: WalletTxnStatus.PENDING,
+      },
+      { $set: { status: WalletTxnStatus.COMPLETED } },
+      { new: true },
+    );
+    // Already credited (or not this user's order) → report the balance as-is.
+    if (txn) await this.applyCredit(txn);
+    return { balance: await this.getBalance(userId) };
+  }
+
   /** Test-mode top-up confirmation (dev only). Idempotent. */
   async confirmTopupTest(transactionId: string, userId: string) {
     if (!Types.ObjectId.isValid(transactionId)) {

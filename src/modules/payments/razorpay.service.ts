@@ -54,6 +54,34 @@ export class RazorpayService {
   }
 
   /**
+   * Verify a checkout callback signature: HMAC-SHA256 of `orderId|paymentId`
+   * keyed by the API **key secret** (not the webhook secret).
+   *
+   * This is what lets the browser's success callback be trusted without a
+   * registered webhook: only Razorpay can produce this signature, so a client
+   * cannot forge a payment. The webhook remains the more robust path (it still
+   * fires if the user closes the tab mid-redirect), but this covers the common
+   * case and is the only confirmation available until a webhook is registered.
+   */
+  verifyCheckoutSignature(
+    orderId: string,
+    paymentId: string,
+    signature: string,
+  ): boolean {
+    const secret = this.config.get<string>('razorpay.keySecret');
+    if (!secret || !orderId || !paymentId || !signature) return false;
+
+    const expected = createHmac('sha256', secret)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  }
+
+  /**
    * Verify a Razorpay webhook signature over the raw request body.
    * Never trust a client-reported payment success — only a verified webhook.
    */

@@ -206,6 +206,37 @@ export class BookingsService {
     return res.modifiedCount > 0;
   }
 
+  /**
+   * Confirm an advance from a **verified** Razorpay checkout callback.
+   *
+   * The signature is checked by the caller (PaymentController) before this runs,
+   * so reaching here means Razorpay itself vouched for the payment. Scoped to
+   * the calling user's own booking, and matched on `razorpayOrderId` so a valid
+   * signature for one order can never confirm a different booking.
+   *
+   * Idempotent: a second call (double-click, retry, or a webhook that lands
+   * afterwards) modifies nothing and still reports success.
+   */
+  async confirmAdvanceByCheckout(
+    userId: string,
+    razorpayOrderId: string,
+    paymentId: string,
+  ) {
+    const booking = await this.bookingModel.findOne({
+      razorpayOrderId,
+      user: new Types.ObjectId(userId),
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    if (!booking.advancePaid) {
+      booking.advancePaid = true;
+      booking.status = OrderStatus.CONFIRMED;
+      booking.razorpayPaymentId = paymentId;
+      await booking.save();
+    }
+    return this.view(booking);
+  }
+
   /** Test-mode confirmation by booking id (dev only). Idempotent. */
   async confirmAdvanceTest(bookingId: string, userId: string) {
     if (!Types.ObjectId.isValid(bookingId)) {
