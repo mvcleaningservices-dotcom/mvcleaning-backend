@@ -24,11 +24,14 @@ export default () => ({
     password: process.env.SUPER_ADMIN_PASSWORD || '',
   },
 
-  // Consumer OTP via MSG91 (Phase 1)
-  msg91: {
-    authKey: process.env.MSG91_AUTH_KEY || '',
-    senderId: process.env.MSG91_SENDER_ID || '',
-    templateId: process.env.MSG91_TEMPLATE_ID || '',
+  // Consumer OTP via Omnichannel SMS (STPL-registered, DLT-compliant)
+  // TODO: populate once Omnichannel credentials/domain are confirmed.
+  sms: {
+    username: process.env.SMS_USERNAME || '',
+    password: process.env.SMS_PASSWORD || '',
+    domain: process.env.SMS_DOMAIN || '',
+    senderId: process.env.SMS_SENDER_ID || '',
+    dltContentId: process.env.SMS_DLT_CONTENT_ID || '',
   },
 
   // Payments via Razorpay (Phase 2 / 4)

@@ -3,26 +3,38 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 /**
- * Sends SMS OTP via MSG91 (scope §2.1).
+ * Sends OTP SMS via the Omnichannel HTTP API (DLT-compliant, STPL-registered).
  *
- * If MSG91 credentials are not configured, runs in DEV MODE: instead of
- * sending a real SMS it logs the OTP to the server console (and never in
- * production). This lets the whole OTP flow be built and tested offline;
- * it flips to real MSG91 the moment credentials are added to .env.
+ * API method: HTTP GET to /fe/api/v1/send with query params.
+ * All params are URL-encoded (encodeURIComponent → spaces as %20).
+ *
+ * If credentials are not configured, runs in DEV MODE: logs the OTP to the
+ * server console instead of sending a real SMS. Flips to live SMS the moment
+ * SMS_DOMAIN / SMS_USERNAME / SMS_PASSWORD are set in .env.
  */
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
 
+  /** DLT-approved message template. {code} is replaced at send time. */
+  private readonly OTP_TEMPLATE =
+    'Dear Customer, your OTP for login to https://www.mvcleaningservices.in/ is {code}. ' +
+    'Please do not share it with anyone. - MV Cleaning Services';
+
   constructor(private readonly config: ConfigService) {}
 
+  /** Live only when all three required credentials are present in .env. */
   private get isLive(): boolean {
-    return !!this.config.get<string>('msg91.authKey');
+    return !!(
+      this.config.get<string>('sms.domain') &&
+      this.config.get<string>('sms.username') &&
+      this.config.get<string>('sms.password')
+    );
   }
 
   /**
    * True only in local dev with no SMS provider configured. Used to surface a
-   * dev OTP hint for testing. NEVER true in production or with live MSG91.
+   * dev OTP hint in the app for testing. NEVER true in production or with live SMS.
    */
   get isDevMock(): boolean {
     return !this.isLive && this.config.get<string>('env') !== 'production';
@@ -32,34 +44,110 @@ export class SmsService {
     if (!this.isLive) {
       if (this.config.get<string>('env') === 'production') {
         throw new Error(
-          'MSG91 credentials required in production to send OTP SMS.',
+          'SMS provider credentials required in production to send OTP SMS.',
         );
       }
+      // Dev mode — log OTP to console so the developer can test without a real SIM.
       this.logger.warn(
-        `[DEV OTP] No MSG91 key set — OTP for ${mobile} is: ${code}`,
+        `[DEV OTP] No SMS provider configured — OTP for ${mobile} is: ${code}`,
       );
       return;
     }
 
-    const authKey = this.config.get<string>('msg91.authKey');
-    const templateId = this.config.get<string>('msg91.templateId');
-    const senderId = this.config.get<string>('msg91.senderId');
+    const domain       = this.config.get<string>('sms.domain');
+    const username     = this.config.get<string>('sms.username');
+    const password     = this.config.get<string>('sms.password');
+    const senderId     = this.config.get<string>('sms.senderId')     || 'MVCLSS';
+    const dltContentId = this.config.get<string>('sms.dltContentId') || '1777179085282340380';
+
+    // Substitute the OTP into the DLT-approved template.
+    const text = this.OTP_TEMPLATE.replace('{code}', code);
+
+    // API requires recipient with country code (91 for India).
+    const recipient = `91${mobile}`;
+
+    // ── Fire the HTTP GET request ──────────────────────────────────────────
+    // axios serializes `params` as URL-encoded query string automatically.
+    // OTP messages are English-only → unicode: false.
+    // Build the query string with encodeURIComponent so spaces go out as %20
+    // (per the API doc). axios' default serializer uses '+', which a strict
+    // gateway may not decode — breaking the exact DLT template match.
+    const query = Object.entries({
+      username,
+      password,
+      unicode: 'false', // English-only OTP text
+      from: senderId,
+      to: recipient,
+      text,
+      dltContentId,
+    })
+      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+      .join('&');
+
+    let data: {
+      transactionId?: number;
+      state?: string;
+      statusCode?: number;
+      description?: string;
+    };
 
     try {
-      // MSG91 OTP flow API
-      await axios.post(
-        'https://control.msg91.com/api/v5/otp',
-        {
-          template_id: templateId,
-          mobile,
-          otp: code,
-          sender: senderId,
-        },
-        { headers: { authkey: authKey } },
+      const response = await axios.get(
+        `https://${domain}/fe/api/v1/send?${query}`,
+        { timeout: 10000 },
       );
-    } catch (err) {
-      this.logger.error(`MSG91 send failed for ${mobile}`, err?.message);
-      throw new Error('Failed to send OTP. Please try again.');
+      data = response.data;
+    } catch (err: any) {
+      // The gateway may answer an error (e.g. 2070) with a non-2xx status —
+      // axios throws, but the JSON body still carries the statusCode.
+      if (err?.response?.data?.statusCode) {
+        data = err.response.data;
+      } else {
+        this.logger.error(
+          `SMS gateway network error for ${mobile}`,
+          err?.message,
+        );
+        throw new Error('Failed to send OTP. Please try again.');
+      }
+    }
+
+    // ── Parse gateway response ─────────────────────────────────────────────
+    if (data.state !== 'SUBMIT_ACCEPTED') {
+      const errMsg = this.resolveGatewayError(data.statusCode, data.description);
+      this.logger.error(
+        `OTP SMS rejected for ${mobile}: [${data.statusCode}] ${data.description}`,
+      );
+      throw new Error(errMsg);
+    }
+
+    this.logger.log(
+      `OTP SMS sent to ${mobile} — transactionId: ${data.transactionId}`,
+    );
+  }
+
+  /**
+   * Maps Omnichannel gateway status codes to user-safe (and ops-useful) messages.
+   * Status codes as per API documentation §6.
+   */
+  private resolveGatewayError(statusCode?: number, fallback?: string): string {
+    switch (statusCode) {
+      case 2051:
+        // Sender ID not registered on panel.
+        return 'OTP send failed: sender ID not registered. Please contact support.';
+      case 2054:
+        // MSISDN not in 10- or 12-digit length.
+        return 'OTP send failed: invalid mobile number format.';
+      case 2070:
+        // Invalid username / password / account expired.
+        return 'OTP send failed: SMS gateway authentication error. Please contact support.';
+      case 6001:
+        // Zero SMS credit.
+        return 'OTP send failed: insufficient SMS balance. Please contact support.';
+      case 7001:
+        // DLT Content ID missing or not found.
+        return 'OTP send failed: DLT content ID not found. Please contact support.';
+      default:
+        return fallback || 'Failed to send OTP. Please try again.';
     }
   }
 }
