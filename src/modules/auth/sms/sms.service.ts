@@ -5,8 +5,9 @@ import axios from 'axios';
 /**
  * Sends OTP SMS via the Omnichannel HTTP API (DLT-compliant, STPL-registered).
  *
- * API method: HTTP GET to /fe/api/v1/send with query params.
- * All params are URL-encoded (encodeURIComponent → spaces as %20).
+ * API method: JSON POST to /fe/api/v1/message with HTTP Basic auth — keeps the
+ * username/password out of the URL (GET query-string credentials end up in
+ * server/proxy access logs and browser history).
  *
  * If credentials are not configured, runs in DEV MODE: logs the OTP to the
  * server console instead of sending a real SMS. Flips to live SMS the moment
@@ -66,23 +67,7 @@ export class SmsService {
     // API requires recipient with country code (91 for India).
     const recipient = `91${mobile}`;
 
-    // ── Fire the HTTP GET request ──────────────────────────────────────────
-    // axios serializes `params` as URL-encoded query string automatically.
-    // OTP messages are English-only → unicode: false.
-    // Build the query string with encodeURIComponent so spaces go out as %20
-    // (per the API doc). axios' default serializer uses '+', which a strict
-    // gateway may not decode — breaking the exact DLT template match.
-    const query = Object.entries({
-      username,
-      password,
-      unicode: 'false', // English-only OTP text
-      from: senderId,
-      to: recipient,
-      text,
-      dltContentId,
-    })
-      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
-      .join('&');
+    const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
     let data: {
       transactionId?: number;
@@ -92,9 +77,22 @@ export class SmsService {
     };
 
     try {
-      const response = await axios.get(
-        `https://${domain}/fe/api/v1/send?${query}`,
-        { timeout: 10000 },
+      const response = await axios.post(
+        `https://${domain}/fe/api/v1/message`,
+        {
+          extra: { dltContentId },
+          message: { recipient, text },
+          sender: senderId,
+          unicode: false, // English-only OTP text
+        },
+        {
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          timeout: 10000,
+        },
       );
       data = response.data;
     } catch (err: any) {
